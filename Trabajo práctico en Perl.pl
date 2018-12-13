@@ -1,101 +1,5 @@
-#El modo de recoger las información se va a centrar en la elaboración de un hash multidimencional denominado %deptos 
-#que contiene como llaves a las localidades de la pcia de Córdoba, cada una de esas llaves tiene asociado un conjunto 
-#de llaves que serán los diferentes circuitos de cada localidad, que a su vez contendran cada una las mesas asociadas 
-#a ese circuito. 
-#Esta estructura de datos es un árbol que nos sirve para que al momento de llegar a una mesa en concreto nos permita 
-#conocer a que circuito y de que localidad proviene. 
-
-#!perl
-
 use LWP::Simple;
 use Excel::Writer::XLSX;
-
-=pod
-$url_prov="http://www.resultados.gob.ar/telegr/IPRO.htm";
-
-$contenido=get($url_prov);
-
-#Separo en un arreglo de renglones
-@lineas=split(/\n/, $contenido); 
-
-#Busco en cada renglón la palabra C*rdoba, donde * es cualquier letra ya que lleva un tilde
-#Se busca un grupo en el mismo renglón que tenga cualquier letra o dígito que se repita una o más veces (w+)
-#Seguido de dígitos que se repitan una o más veces (\d+)
-#Cambio el substring "IPRO.htm" por lo que se guarda en $1 (grupo que cumple con la expresión regular)
-#Guardo la dirección en $url_loc. 
-
-foreach $a(@lineas){
-	if($a=~/C\wrdoba/){
-		if($a=~/(\w+\d+\w*\.htm)/){
-			$aux=$1;
-			$url_loc=$url_prov;
-			$exist=index $url_loc, "IPRO.htm";
-			if($exist!=-1){
-				substr $url_loc, $exist, 8, $aux;
-			}				
-		}
-	}
-}
-
-#uso la dirección obtenida antes y armo un hash con llaves que son string que luego formarán nuevas direcciones
-$contenido=get($url_loc);
-
-@lineas=split(/\n/, $contenido); 
-
-#Hash vacio
-%deptos=();
-
-#Cada substring que cumpla con la expresión regular será una llave del hash %deptos
-foreach $a(@lineas){
-	if($a=~/(\w+\d+\w*\.htm)/){
-		$k=$1;
-		$deptos{$1}=();			
-	}	
-}
-
-foreach $k(keys %deptos){
-	$url_cir=$url_prov;
-	$exist=index $url_cir, "IPRO.htm";
-	if($exist!=-1){
-		substr $url_cir, $exist, 8, $k;
-	}
-	$contenido=get($url_cir);
-	@lineas=split(/\n/, $contenido);
-	foreach $a(@lineas){
-		if($a=~/(\w+\d+\w*\.htm)/){
-			$deptos{$k}{$1}=();
-		}	
-	}				 
-}
-
-
-foreach $k1(sort keys %deptos){
-	foreach $k2(sort keys %{$deptos{$k1}}){	
-		$url_mes=$url_prov;
-		$exist=index $url_mes, "IPRO.htm";
-		if($exist!=-1){
-			substr $url_mes, $exist, 8, $k2;
-		}
-		print "Dirección de mesas: ", $url_mes, "\n";		
-		$contenido=get($url_mes); 						
-		@lineas=split(/\n/, $contenido);
-		@arreglo=();		
-		foreach $a(@lineas){
-			if($a=~/(\d+\/\d+\/\d+\w*\/\d+\w*\d+\.htm)/){
-				push(@arreglo, $1);				
-			}	
-		}
-		$deptos{$k1}{$k2}=[@arreglo];		
-	}
-}
-=cut
-
-=pod
-Nuevo enunciado:
-----------------
-
-Dado que el sitio original no está disponible, se combio la funte de la información sobre la elección provincial 2015. En este caso no es la misma información, porque el detalle mínimo es sobre un circuito electoral y no sobre el telegrama de cada mesa. La consigna se mantiene en cuento a la agregación de datos desde la información más detallada disponible: deberán tomar los datos de cada circuito y sumarizarlos por Departamento y por agrupación política. El resultado final provicial "deberia" coincidir con el publicado por la Justicia. Digo "deberia" porque si no coincide, la fuente de diferencia puede estar del lado del servidor.
-=cut
 
 #subrutina que guarda en un arreglo el contenido de la página divido por \n;
 sub Obtener{
@@ -128,19 +32,19 @@ sub ObtenerVotos{
 					push(@{$votos},$1);
 					$adentro=0;
 				}
-			
+
 			}
 		}
 	}
 }
 
-#Los valores en la página están puestos con comas cuando superan el valor 1000, al sumarlos se necesita que estén sin comas. 
+#Los valores en la página están puestos con comas cuando superan el valor 1000, al sumarlos se necesita que estén sin comas.
 sub QuitarComa{
 	my($votos)=@_;
 	foreach $a(@{$votos}){
 		ArmarEnlace($a,\$b,",","",1);
 		ArmarEnlace($b,\$c,",","",1);
-		$a=$c;	
+		$a=$c;
 	}
 }
 
@@ -150,8 +54,8 @@ sub Sumatoria{
 	my $i=0;
 	while($i< scalar@{$votos}){
 		${$sum_votos}[$i]+=${$votos}[$i];
-		$i++;	
-	}	
+		$i++;
+	}
 }
 
 #Subrutina que debería guardar en el excel los elementos que se le pasan. NO FUNCIONÓ
@@ -164,9 +68,9 @@ sub GuardarInfo{
 #Página principal.
 $url_prov="http://www.justiciacordoba.gob.ar/jel/ReportesEleccion20150705/Index.html";
 #Agregado para obtener los enlaces, donde "x" -> x=P provincia, x=L+nº Localidades.
-$completar="Resultados/E20150705_x_CA2_0.htm";  
+$completar="Resultados/E20150705_x_CA2_0.htm";
 #Corta el contenido de la url por lineas y lo guarda en un arreglo.
-Obtener($url_prov,\@lineas);  
+Obtener($url_prov,\@lineas);
 
 #Hash con todos los departamentos de la provincia.
 %provincia=();
@@ -204,19 +108,19 @@ $i=2;
 
 while($i<27){
 	$aux=$cadena.$i." =";
-	$i++;	
-	push(@temporal, $aux);	
+	$i++;
+	push(@temporal, $aux);
 }
 
 
 @arreglo=();
 #En este arreglo se almacenan por cada lugar del arreglo todas las localidades interiores de cada departamento.
 foreach $a(@temporal){
-	foreach $b(@lineas){		
+	foreach $b(@lineas){
 		if($b=~m/\Q$a\E/){
 			if($b=~/\((.+)\)/){
 				push(@arreglo,$1);
-			} 		
+			}
 		}
 	}
 }
@@ -229,20 +133,20 @@ unshift(@arreglo, "");
 $i=0;
 foreach $a(sort keys %provincia){
 	@aux=split(",",$arreglo[$i]);
-	$provincia{$a}=[@aux];	
-	$i++;	
+	$provincia{$a}=[@aux];
+	$i++;
 }
 
 ArmarEnlace($url_prov, \$url_final, "Index.html", $completar, 10);
 
 $i=1;
 while($i<27){
-	ArmarEnlace($url_final, \$url_total, "x", "S".$i, 1);	
+	ArmarEnlace($url_final, \$url_total, "x", "S".$i, 1);
 	push(@departamentos,$url_total);
 	$i++;
 }
 
-#guardo el contenido de ese enlace en $contenido y lo corto por lineas. 
+#guardo el contenido de ese enlace en $contenido y lo corto por lineas.
 
 
 #Armo arreglos donde se guardarán los nombres de los partidos, votos validos, nulos, etc, cantidad de votos por partido, cantidad de votos
@@ -266,7 +170,7 @@ push(@categorias,"Total de ELECTORES EN PADRON");
 #Obtener($url_total, \@lineas);
 
 #Por cada nombre de partido me fijo linea por linea hasta encontrar coincidencia, cuando la hay $adentro es 1 y cuando sigue con la siguiente linea
-#busca cualquier cantidad de numeros separados hasta por dos "," y lo guardo en el arreglo creado. Ej 1,234,124. 
+#busca cualquier cantidad de numeros separados hasta por dos "," y lo guardo en el arreglo creado. Ej 1,234,124.
 
 @sum_votos_partidos=();
 @sum_votos_categorias=();
@@ -279,7 +183,7 @@ foreach $a(@departamentos){
 	QuitarComa(\@votos_categorias);
 	Sumatoria(\@votos_categorias, \@sum_votos_categorias);
 	@votos_partidos=();
-	@votos_categorias=();	
+	@votos_categorias=();
 }
 
 #Creo un arreglo para 27 páginas (Provincia completa y 26 departamentos).
@@ -313,13 +217,13 @@ foreach $a(@sum_votos_partidos){
 $i=0;
 foreach $a(@categorias){
 	if($a eq "Total de Votos V"){
-		#$a=$a."ALIDOS";	
+		#$a=$a."ALIDOS";
 		$worksheets[0]->write(12+$i, 0, $a."ALIDOS");
 	}
 	else{
 		$worksheets[0]->write(12+$i, 0, $a);
 	}
-	
+
 	$i++;
 }
 $i=0;
@@ -354,13 +258,13 @@ foreach $a(@votos_partidos){
 }
 $i=0;
 foreach $a(@categorias){
-	if($a eq "Total de Votos V"){	
+	if($a eq "Total de Votos V"){
 		$worksheets[1]->write(12+$i, 0, $a."ALIDOS");
 	}
 	else{
 		$worksheets[1]->write(12+$i, 0, $a);
 	}
-	
+
 	$i++;
 }
 $i=0;
@@ -382,11 +286,11 @@ foreach $a(sort keys %provincia){
 		foreach $b(@{$provincia{$a}}){
 			if($b=~/\"(\d+)\|\d+\;(.+)\"/){#\w+\s*\w*
 				$codigo=$1;
-				$nombre_loc=$2;		
+				$nombre_loc=$2;
 			}
 			$aux="L".$codigo;
 			ArmarEnlace($url_final,\$url_total,"x",$aux,1);
-			Obtener($url_total,\@lineas);	
+			Obtener($url_total,\@lineas);
 			ObtenerVotos(\@lineas,\@partidos,\@votos_partidos);
 			ObtenerVotos(\@lineas,\@categorias,\@votos_categorias);
 			QuitarComa(\@votos_partidos);
@@ -395,8 +299,8 @@ foreach $a(sort keys %provincia){
 			Sumatoria(\@votos_partidos, \@sum_votos_partidos);
 			@votos_partidos=();
 			@votos_categorias=();
-			print "\nGuardando...", $nombre_loc;	
-		}	
+			print "\nGuardando...", $nombre_loc;
+		}
 #-----------------------------------------------------------------------------------
 		$worksheets[$indice]->write(0, 3, $a);
 		$worksheets[$indice]->write(2, 0, "PARTIDOS");
@@ -414,13 +318,13 @@ foreach $a(sort keys %provincia){
 		}
 		$i=0;
 		foreach $c(@categorias){
-			if($c eq "Total de Votos V"){	
+			if($c eq "Total de Votos V"){
 				$worksheets[$indice]->write(12+$i, 0, $c."ALIDOS");
 			}
 			else{
 				$worksheets[$indice]->write(12+$i, 0, $c);
 			}
-	
+
 			$i++;
 		}
 		$i=0;
@@ -432,11 +336,9 @@ foreach $a(sort keys %provincia){
 		@sum_votos_categorias=();
 		$indice++;
 #---------------------------------------------------------------------------------------
-	}	
-} 
+	}
+}
 
 print "\nFinalizado.\n-------------------------------------------------------------";
 
 $workbook->close();
-
-
