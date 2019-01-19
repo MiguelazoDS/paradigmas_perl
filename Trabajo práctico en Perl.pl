@@ -26,11 +26,11 @@ sub Obtener{
 #Arma un enlace a partir de otro cambiandole solo una pequeña parte, necesario cuando se quiere obtener
 #por ejemplo cada departamento o localidad.
 #Recibe la dirección original, una referencia a una nueva dirección, la parte de la url original que se
-#desea cambiar, la nueva línea, y la longitud de la línea.
+#desea cambiar, y la nueva línea.
 #Verifica si existe la línea que se desea cambiar en la dirección original, y si existe la cambia
 #por la nueva.
 sub ArmarEnlace{
-	my ($old_url, $new_url, $old_line, $new_line, $old_line_val)=@_;
+	my ($old_url, $new_url, $old_line, $new_line)=@_;
 	my $long = length($old_line);
 	${$new_url}=$old_url;
 	$exist=index ${$new_url}, $old_line;
@@ -47,6 +47,22 @@ sub imprimir_int_char {
 	for $i (0..length($_[0])-1){
 		$char = substr($_[0], $i, 1);
 		print "Caracter: $char - Valor: ", ord($char), "\n";
+	}
+}
+
+#Corrige "error del espacio".
+#Recibe una referencia a @lineas, cuenta primera la cantidad de veces que se repiten
+#los dos caracters en $lineas[$i] y ejecuta la función ArmarEnlace() para cambiar
+#esos dos caracteres por un espacio.
+sub Corregir {
+	for (my $i = 0; $i < scalar@{$_[0]}; $i++) {
+		#Contamos primero la cantidad de veces que se repiten esos dos caracteres.
+		my @veces = (${$_[0]}[$i] =~ /$_[1]/g);
+		my $cantidad = scalar@veces;
+		while ($cantidad > 0) {
+			ArmarEnlace(${$_[0]}[$i], \${$_[0]}[$i], $_[1], " ");
+			$cantidad--;
+		}
 	}
 }
 
@@ -105,7 +121,7 @@ sub GuardarInfo{
 $url_prov="http://www.justiciacordoba.gob.ar/jel/ReportesEleccion20150705/Index.html";
 
 #Línea adicional que se agrega a la dirección principal para obtener los enlaces,
-#donde "x" -> x=P provincia, x=L+nº Localidades.
+#donde "x" -> x=P provincia, x=S+nº departamentos, x=L+nº Localidades.
 $completar="Resultados/E20150705_x_CA2_0.htm";
 
 #Corta el contenido de la url por lineas y lo guarda en un arreglo.
@@ -140,7 +156,7 @@ $provincia{"24|Totoral"}=();
 $provincia{"25|Tulumba"}=();
 $provincia{"26|Union"}=();
 
-#Creo un arreglo que contiene una serie de 26 cadenas para obtener todas las localidades de cada departamento,
+#Se crea un arreglo que contiene una serie de 26 cadenas para obtener todas las localidades de cada departamento,
 #i va desde 2 hasta 26, por que i=1 que es capital no tiene localidades interiores.
 $cadena="var arrLocalidadesSecc";
 $i=2;
@@ -202,29 +218,15 @@ push(@categorias,"Total de Votos BLANCOS");
 push(@categorias,"Total de VOTANTES");
 push(@categorias,"Total de ELECTORES EN PADRON");
 
-#Por cada nombre de partido me fijo linea por linea hasta encontrar coincidencia, cuando la hay $adentro es 1 y cuando sigue con la siguiente linea
-#busca cualquier cantidad de numeros separados hasta por dos "," y lo guardo en el arreglo creado. Ej 1,234,124.
-@sum_votos_partidos=();
-@sum_votos_categorias=();
-@votos_partidos=();
-foreach $departamento(@departamentos){
-	Obtener($departamento, \@lineas);
-	ObtenerVotos(\@lineas,\@partidos,\@votos_partidos);
-	QuitarComa(\@votos_partidos);
-	Sumatoria(\@votos_partidos, \@sum_votos_partidos);
-	ObtenerVotos(\@lineas,\@categorias,\@votos_categorias);
-	QuitarComa(\@votos_categorias);
-	Sumatoria(\@votos_categorias, \@sum_votos_categorias);
-	@votos_partidos=();
-	@votos_categorias=();
-}
-
 ################################################################################
 #													Problema del caracter espacio												 #
 ################################################################################
 #La función ObtenerVotos() no funciona correctamente por que el caracter espacio
 #no está representado en utf-8 y a pesar que se convirtió, queda como un caracter
 #doble no reconocible.
+
+#Guardamos la información del departamento Capital.
+Obtener($departamentos[0],\@lineas);
 
 #Buscamos una línea donde se muestre algún nombre de partido.
 print $lineas[67],"\n";
@@ -242,11 +244,47 @@ imprimir_int_char($lineas[67],"\n");
 print "\nValores de la cadena del partido.\n\n";
 
 imprimir_int_char($partido);
+
+#########################  				 Solución        #############################
+
+#Definimos una cadena que contenga los caracteres que producen el conflicto.
+$error= chr(194).chr(160);
+
+print "\nValores de error.\n\n";
+
+imprimir_int_char($error);
+
+#Corregimos el error en el arreglo líneas.
+Corregir(\@lineas,$error);
+
+$c = "\nValores de la cadena de la página\n\n";
+utf8::encode($c);
+print $c,"\n";
+
+imprimir_int_char($lineas[67],"\n");
+
 ################################################################################
 # 																		Fin																			 #
 ################################################################################
 
 =pod
+#Por cada nombre de partido me fijo linea por linea hasta encontrar coincidencia, cuando la hay $adentro es 1 y cuando sigue con la siguiente linea
+#busca cualquier cantidad de numeros separados hasta por dos "," y lo guardo en el arreglo creado. Ej 1,234,124.
+@sum_votos_partidos=();
+@sum_votos_categorias=();
+@votos_partidos=();
+foreach $departamento(@departamentos){
+	Obtener($departamento, \@lineas);
+	ObtenerVotos(\@lineas,\@partidos,\@votos_partidos);
+	QuitarComa(\@votos_partidos);
+	Sumatoria(\@votos_partidos, \@sum_votos_partidos);
+	ObtenerVotos(\@lineas,\@categorias,\@votos_categorias);
+	QuitarComa(\@votos_categorias);
+	Sumatoria(\@votos_categorias, \@sum_votos_categorias);
+	@votos_partidos=();
+	@votos_categorias=();
+}
+
 sub ObtenerVotos{
 	my ($lineas, $linea, $votos)=@_;
 	my $adentro=0;
