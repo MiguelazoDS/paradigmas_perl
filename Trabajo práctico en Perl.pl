@@ -1,20 +1,52 @@
-use LWP::Simple;
-use Excel::Writer::XLSX;
+#!/usr/bin/env perl
+################################################################################
+#										          Sección de módulos															 #
+################################################################################
 
-#subrutina que guarda en un arreglo el contenido de la página divido por \n;
+#Módulo que contiene la función get().
+use LWP::Simple;
+#Módulo que permite interactuar con archivos XLSX.
+use Excel::Writer::XLSX;
+#Módulo que convierte a utf-8 la información obtenida de la página.
+use utf8;
+################################################################################
+# 													Definición de funciones														 #
+################################################################################
+
+#Subrutina que guarda en un arreglo el contenido de la página divido por saltos de línea.
+#Recibe una url y una referencia a una arreglo. Guarda el contenido de la página en una
+#variable auxiliar, la convierte a utf-8. Luego guarda cada línea en un lugar del arreglo.
 sub Obtener{
 	my ($url, $array) = @_;
 	my $contenido = get($url);
+	utf8::encode($contenido);
 	@{$array}=split("\n", $contenido);
 }
 
-#Arma un enlace a partir de otro cambiandole solo una pequeña parte, necesario cuando se quiere obtener por ejemplo cada departamento o localidad
+#Arma un enlace a partir de otro cambiandole solo una pequeña parte, necesario cuando se quiere obtener
+#por ejemplo cada departamento o localidad.
+#Recibe la dirección original, una referencia a una nueva dirección, la parte de la url original que se
+#desea cambiar, la nueva línea, y la longitud de la línea.
+#Verifica si existe la línea que se desea cambiar en la dirección original, y si existe la cambia
+#por la nueva.
 sub ArmarEnlace{
 	my ($old_url, $new_url, $old_line, $new_line, $old_line_val)=@_;
+	my $long = length($old_line);
 	${$new_url}=$old_url;
 	$exist=index ${$new_url}, $old_line;
 	if($exist!=-1){
-		substr ${$new_url}, $exist, $old_line_val, $new_line;
+		substr ${$new_url}, $exist, $long, $new_line;
+	}
+}
+
+#Imprime el valor númerico de cada caracter de una cadena.
+#Recibe una cadena y va obteniendo el valor con $i, el tercer argumento representa
+#la cantidad de caracteres que se toman de esa subcadena. Con ord() se obtiene el
+#valor numérico del caracter.
+sub imprimir_int_char {
+	for $i (0..length($_[0])-1){
+		$char = substr($_[0], $i, 1);
+		print "Caracter: $char - Valor: ", ord($char), "\n";
 	}
 }
 
@@ -65,14 +97,21 @@ sub GuardarInfo{
 
 }
 
+################################################################################
+#																Programa principal														 #
+################################################################################
+
 #Página principal.
 $url_prov="http://www.justiciacordoba.gob.ar/jel/ReportesEleccion20150705/Index.html";
-#Agregado para obtener los enlaces, donde "x" -> x=P provincia, x=L+nº Localidades.
+
+#Línea adicional que se agrega a la dirección principal para obtener los enlaces,
+#donde "x" -> x=P provincia, x=L+nº Localidades.
 $completar="Resultados/E20150705_x_CA2_0.htm";
+
 #Corta el contenido de la url por lineas y lo guarda en un arreglo.
 Obtener($url_prov,\@lineas);
 
-#Hash con todos los departamentos de la provincia.
+#Hash con todos los departamentos de la provincia como llaves.
 %provincia=();
 $provincia{"01|Capital"}=();
 $provincia{"02|Calamuchita"}=();
@@ -101,8 +140,8 @@ $provincia{"24|Totoral"}=();
 $provincia{"25|Tulumba"}=();
 $provincia{"26|Union"}=();
 
-#Creo un arreglo que contiene una seria de 26 cadenas para obtener todas las localidades de cada departamento, i va desde 2 hasta 26, por que i=1
-#que es capital no tiene localidades interiores.
+#Creo un arreglo que contiene una serie de 26 cadenas para obtener todas las localidades de cada departamento,
+#i va desde 2 hasta 26, por que i=1 que es capital no tiene localidades interiores.
 $cadena="var arrLocalidadesSecc";
 $i=2;
 
@@ -112,8 +151,6 @@ while($i<27){
 	push(@temporal, $aux);
 }
 
-
-@arreglo=();
 #En este arreglo se almacenan por cada lugar del arreglo todas las localidades interiores de cada departamento.
 foreach $a(@temporal){
 	foreach $b(@lineas){
@@ -125,35 +162,33 @@ foreach $a(@temporal){
 	}
 }
 
-
-#agregamos un "vacio" en el primer lugar del arreglo que representa al departamento Capital.
+#agregamos un "vacío" en el primer lugar del arreglo que representa al departamento Capital.
 unshift(@arreglo, "");
 
-#Armo un arreglo que consta de todas las localidades por arreglo y lo guardo en su respectivo departamento del hash %provincia.
+#Con cada lugar del arreglo anterior, armo un nuevo arreglo que tiene una localidad por cada lugar.
+#Asigno ese arreglo a la correspondiente llave del hash %provincia.
 $i=0;
-foreach $a(sort keys %provincia){
+foreach $key(sort keys %provincia){
 	@aux=split(",",$arreglo[$i]);
-	$provincia{$a}=[@aux];
+	$provincia{$key}=[@aux];
 	$i++;
 }
 
-ArmarEnlace($url_prov, \$url_final, "Index.html", $completar, 10);
+#Armo un "molde" de enlace para acceder a todos los departamentos.
+ArmarEnlace($url_prov, \$url_final, "Index.html", $completar);
 
+#Cambio la "x" por una "S" concatenada con el número de departamento (1 al 26).
+#Guardo todas las nuevas direcciones en un arreglo.
 $i=1;
 while($i<27){
-	ArmarEnlace($url_final, \$url_total, "x", "S".$i, 1);
+	ArmarEnlace($url_final, \$url_total, "x", "S".$i);
 	push(@departamentos,$url_total);
 	$i++;
 }
 
-#guardo el contenido de ese enlace en $contenido y lo corto por lineas.
-
-
-#Armo arreglos donde se guardarán los nombres de los partidos, votos validos, nulos, etc, cantidad de votos por partido, cantidad de votos
-#respectivamente.
-@partidos=();
-@categorias=();
-
+#Armo un arreglo con los nombres de los partidos que participaron en las elecciones
+#y otro donde se guardarán los votos validos, nulos, blancos, totales y cantidad de
+#electores por padrón.
 push(@partidos,"MOVIMIENTO AL SOCIALISMO");
 push(@partidos,"FRENTE PROGRESISTA Y POPULAR");
 push(@partidos,"FRENTE DE IZQUIERDA Y DE LOS TRABAJADORES");
@@ -161,21 +196,19 @@ push(@partidos,"CORDOBA PODEMOS");
 push(@partidos,"UNION POR CORDOBA");
 push(@partidos,"JUNTOS POR CORDOBA");
 push(@partidos,"MST NUEVA IZQUIERDA");
-push(@categorias,"Total de Votos V");
+push(@categorias,"Total de Votos VALIDOS");
 push(@categorias,"Total de Votos NULOS");
 push(@categorias,"Total de Votos BLANCOS");
 push(@categorias,"Total de VOTANTES");
 push(@categorias,"Total de ELECTORES EN PADRON");
 
-#Obtener($url_total, \@lineas);
-
 #Por cada nombre de partido me fijo linea por linea hasta encontrar coincidencia, cuando la hay $adentro es 1 y cuando sigue con la siguiente linea
 #busca cualquier cantidad de numeros separados hasta por dos "," y lo guardo en el arreglo creado. Ej 1,234,124.
-
 @sum_votos_partidos=();
 @sum_votos_categorias=();
-foreach $a(@departamentos){
-	Obtener($a, \@lineas);
+@votos_partidos=();
+foreach $departamento(@departamentos){
+	Obtener($departamento, \@lineas);
 	ObtenerVotos(\@lineas,\@partidos,\@votos_partidos);
 	QuitarComa(\@votos_partidos);
 	Sumatoria(\@votos_partidos, \@sum_votos_partidos);
@@ -186,6 +219,54 @@ foreach $a(@departamentos){
 	@votos_categorias=();
 }
 
+################################################################################
+#													Problema del caracter espacio												 #
+################################################################################
+#La función ObtenerVotos() no funciona correctamente por que el caracter espacio
+#no está representado en utf-8 y a pesar que se convirtió, queda como un caracter
+#doble no reconocible.
+
+#Buscamos una línea donde se muestre algún nombre de partido.
+print $lineas[67],"\n";
+
+#Definimos una variable que contiene el partido que muestra la línea anterior.
+$partido = "MOVIMIENTO AL SOCIALISMO";
+
+#Imprimimos el valor númerico de los caracteres de las cadenas para ver que valor tienen.
+$c = "\nValores de la cadena de la página\n\n";
+utf8::encode($c);
+print $c,"\n";
+
+imprimir_int_char($lineas[67],"\n");
+
+print "\nValores de la cadena del partido.\n\n";
+
+imprimir_int_char($partido);
+################################################################################
+# 																		Fin																			 #
+################################################################################
+
+=pod
+sub ObtenerVotos{
+	my ($lineas, $linea, $votos)=@_;
+	my $adentro=0;
+	foreach $a(@{$linea}){
+		foreach $b(@{$lineas}){
+			if($b=~m/\Q$a\E/){
+				$adentro=1;
+			}
+			if($adentro==1){
+				if($b=~/\>(\d+.*)\</){
+					push(@{$votos},$1);
+					$adentro=0;
+				}
+
+			}
+		}
+	}
+}
+=cut
+=pod
 #Creo un arreglo para 27 páginas (Provincia completa y 26 departamentos).
 @worksheets=();
 #Nombre del archivo
@@ -342,3 +423,4 @@ foreach $a(sort keys %provincia){
 print "\nFinalizado.\n-------------------------------------------------------------";
 
 $workbook->close();
+=cut
