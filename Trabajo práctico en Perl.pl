@@ -72,7 +72,6 @@ sub Corregir {
 sub ObtenerVotos{
 	my ($lineas, $parts_cats, $votos)=@_;
 	my $adentro=0;
-	#print "part_cat", $_[1];
 	foreach $a(@{$parts_cats}){
 		foreach $b(@{$lineas}){
 			if($b=~$a){
@@ -117,6 +116,12 @@ sub Sumatoria{
 ################################################################################
 #																Programa principal														 #
 ################################################################################
+
+$salida="Paradigmas de programación";
+utf8::encode($salida);
+print "################################################################\n";
+print "#               $salida                     #\n";
+print "################################################################\n\n";
 
 #Página principal.
 $url_prov="http://www.justiciacordoba.gob.ar/jel/ReportesEleccion20150705/Index.html";
@@ -205,6 +210,7 @@ while($i<27){
 	$i++;
 }
 
+print "----------------------- GUARDANDO ENLACES-----------------------\n";
 #Se crea un hash que contiene por cada llave (departamento) un array con todas las direcciones
 #para acceder a los datos de sus respectivas localidades.
 foreach $departamento(sort keys %provincia){
@@ -334,8 +340,8 @@ ObtenerVotos(\@lineas,\@categorias,\@votos_categorias);
 QuitarComa(\@votos_categorias);
 
 $worksheets->write($i+18, 3, "01|Capital");
-$worksheets->write($j+18+2, 0, "PARTIDOS");
-$worksheets->write($j+18+2, 6, "VOTOS");
+$worksheets->write($i+18+2, 0, "PARTIDOS");
+$worksheets->write($i+18+2, 6, "VOTOS");
 
 $worksheets->write($i+18+4, 0, [\@partidos]);
 $worksheets->write($i+18+4, 6, [\@votos_partidos]);
@@ -343,78 +349,45 @@ $worksheets->write($i+18+12, 0, [\@categorias]);
 $worksheets->write($i+18+12, 0, "Total de Votos VALIDOS");
 $worksheets->write($i+18+12, 6, [\@votos_categorias]);
 
-$workbook->close();
-print "final";
-
-=pod
-#--------------------------------------------------------------
-$indice=2;
+#Se guardan los datos del resto de departamentos.
+#---------------------------------------------------
+$j=2;
+$k=1;
 @votos_partidos=();
 @votos_categorias=();
 @sum_votos_partidos=();
 @sum_votos_categorias=();
-#Guardo el resto de los departamentos en las hojas restantes.
-foreach $a(sort keys %provincia){
-	print "\n\nDepartamento: ", $a,"\n-------------------------------------------------------\n";
-	#Omito departamento capital por que ya está guardado y además no tiene localidades interiores.
-	if($a ne "01|Capital"){
-		foreach $b(@{$provincia{$a}}){
-			if($b=~/\"(\d+)\|\d+\;(.+)\"/){#\w+\s*\w*
-				$codigo=$1;
-				$nombre_loc=$2;
-			}
-			$aux="L".$codigo;
-			ArmarEnlace($url_final,\$url_total,"x",$aux,1);
-			Obtener($url_total,\@lineas);
+
+foreach my $departamento (sort keys %localidades) {
+	print "\n\nDepartamento: ", $departamento, "\n-----------------------------------\n";
+	foreach my $localidad (@{$localidades{$departamento}}) {
+			Obtener($localidad,\@lineas);
+			Corregir(\@lineas,$error);
 			ObtenerVotos(\@lineas,\@partidos,\@votos_partidos);
-			ObtenerVotos(\@lineas,\@categorias,\@votos_categorias);
 			QuitarComa(\@votos_partidos);
+			Sumatoria(\@votos_partidos,\@sum_votos_partidos);
+			ObtenerVotos(\@lineas,\@categorias,\@votos_categorias);
 			QuitarComa(\@votos_categorias);
-			Sumatoria(\@votos_categorias, \@sum_votos_categorias);
-			Sumatoria(\@votos_partidos, \@sum_votos_partidos);
+			Sumatoria(\@votos_categorias,\@sum_votos_categorias);
 			@votos_partidos=();
 			@votos_categorias=();
-			print "\nGuardando...", $nombre_loc;
-		}
-#-----------------------------------------------------------------------------------
-		$worksheets[$indice]->write(0, 3, $a);
-		$worksheets[$indice]->write(2, 0, "PARTIDOS");
-		$worksheets[$indice]->write(2, 6, "VOTOS");
-
-		$i=0;
-		foreach $c(@partidos){
-			$worksheets[$indice]->write(4+$i, 0, $c);
-			$i++;
-		}
-		$i=0;
-		foreach $c(@sum_votos_partidos){
-			$worksheets[$indice]->write(4+$i, 6, $c);
-			$i++;
-		}
-		$i=0;
-		foreach $c(@categorias){
-			if($c eq "Total de Votos V"){
-				$worksheets[$indice]->write(12+$i, 0, $c."ALIDOS");
-			}
-			else{
-				$worksheets[$indice]->write(12+$i, 0, $c);
-			}
-
-			$i++;
-		}
-		$i=0;
-		foreach $c(@sum_votos_categorias){
-			$worksheets[$indice]->write(12+$i, 6, $c);
-			$i++;
-		}
-		@sum_votos_partidos=();
-		@sum_votos_categorias=();
-		$indice++;
-#---------------------------------------------------------------------------------------
+			$cantidad = scalar@{$localidades{$departamento}};
+			$porcentaje = (100*$k)/$cantidad;
+			printf "Guardando...%d%\n", $porcentaje;
+			$k+=1;
 	}
+	$worksheets->write($i+$j*18, 3, $departamento);
+	$worksheets->write($i+$j*18+2, 0, "PARTIDOS");
+	$worksheets->write($i+$j*18+2, 6, "VOTOS");
+	$worksheets->write($i+$j*18+4, 0, [\@partidos]);
+	$worksheets->write($i+$j*18+4, 6, [\@sum_votos_partidos]);
+	$worksheets->write($i+$j*18+12, 0, [\@categorias]);
+	$worksheets->write($i+$j*18+12, 0, "Total de Votos VALIDOS");
+	$worksheets->write($i+$j*18+12, 6, [\@sum_votos_categorias]);
+	@sum_votos_partidos=();
+	@sum_votos_categorias=();
+	$j+=1;
+	$k=1;
 }
-
-print "\nFinalizado.\n-------------------------------------------------------------";
-
 $workbook->close();
-=cut
+print "\n<Completado>";
