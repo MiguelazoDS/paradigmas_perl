@@ -70,9 +70,10 @@ sub Corregir {
 #Primero encuentra el partido o la categoría de voto, luego busca "algo" que  se encuentre
 #entre ></FONT, que es nuestro número de interés.
 sub ObtenerVotos{
-	my ($lineas, $linea, $votos)=@_;
+	my ($lineas, $parts_cats, $votos)=@_;
 	my $adentro=0;
-	foreach $a(@{$linea}){
+	#print "part_cat", $_[1];
+	foreach $a(@{$parts_cats}){
 		foreach $b(@{$lineas}){
 			if($b=~$a){
 				$adentro=1;
@@ -98,12 +99,12 @@ sub QuitarComa{
 			ArmarEnlace($valor,\$valor,",","",1);
 			$cantidad--;
 		}
-		#ArmarEnlace($b,\$c,",","",1);
-		#$a=$c;
 	}
 }
 
 #Se guarda en un arreglo una sumatoria de votos.
+#Recibo por referencia el arreglo con los valores obtenidos y otro donde se va guardando
+#la suma acumulada.
 sub Sumatoria{
 	my ($votos, $sum_votos)=@_;
 	my $i=0;
@@ -111,13 +112,6 @@ sub Sumatoria{
 		${$sum_votos}[$i]+=${$votos}[$i];
 		$i++;
 	}
-}
-
-#Subrutina que debería guardar en el excel los elementos que se le pasan. NO FUNCIONÓ
-sub GuardarInfo{
-	my ($titulo,$partidos,$categorias,$sum_votos_cat,$sum_votos_part,$worksheet)=@_;
-	$worksheet->write(0, 3, $titulo);
-
 }
 
 ################################################################################
@@ -238,7 +232,7 @@ push(@partidos,"CORDOBA PODEMOS");
 push(@partidos,"UNION POR CORDOBA");
 push(@partidos,"JUNTOS POR CORDOBA");
 push(@partidos,"MST NUEVA IZQUIERDA");
-push(@categorias,"Total de Votos VALIDOS");
+push(@categorias,"Total de Votos V");
 push(@categorias,"Total de Votos NULOS");
 push(@categorias,"Total de Votos BLANCOS");
 push(@categorias,"Total de VOTANTES");
@@ -291,19 +285,9 @@ imprimir_int_char($lineas[67]);
 # 																		Fin																			 #
 ################################################################################
 
-foreach my $departamento (sort keys %localidades) {
-	print $departamento, "\n";
-	foreach my $localidad (@{$localidades{$departamento}}) {
-			print $localidad, "\n";
-	}
-}
-
 #Por cada nombre de partido me fijo linea por linea hasta encontrar coincidencia, cuando la hay $adentro es 1 y cuando sigue con la siguiente linea
 #busca cualquier cantidad de numeros separados hasta por dos "," y lo guardo en el arreglo creado. Ej 1,234,124.
-=pod
-@sum_votos_partidos=();
-@sum_votos_categorias=();
-@votos_partidos=();
+
 foreach $departamento(@departamentos){
 	Obtener($departamento, \@lineas);
 	Corregir(\@lineas,$error);
@@ -316,25 +300,11 @@ foreach $departamento(@departamentos){
 	@votos_partidos=();
 	@votos_categorias=();
 }
-=cut
-=pod
-Obtener($departamentos[0],\@lineas);
-Corregir(\@lineas,$error);
-ObtenerVotos(\@lineas,\@partidos,\@votos_partidos);
-QuitarComa(\@votos_partidos);
-Sumatoria(\@votos_partidos,\@sum_votos_partidos);
-foreach my $x (@votos_partidos) {
-	print $x, "\n";
-}
 
-#print "suma", @sum_votos_partidos;
-foreach my $x (@votos_partidos) {
-	$var += $x;
-}
+print "final";
 
-print $var;
-=cut
 =pod
+
 #Creo un arreglo para 27 páginas (Provincia completa y 26 departamentos).
 @worksheets=();
 #Nombre del archivo
@@ -390,6 +360,8 @@ QuitarComa(\@votos_partidos);
 ObtenerVotos(\@lineas,\@categorias,\@votos_categorias);
 QuitarComa(\@votos_categorias);
 
+
+
 #--------------------------------------------------------------
 $worksheets[1]->write(0, 3, "01|Capital");
 $worksheets[1]->write(2, 0, "PARTIDOS");
@@ -421,6 +393,7 @@ foreach $a(@votos_categorias){
 	$worksheets[1]->write(12+$i, 6, $a);
 	$i++;
 }
+
 #--------------------------------------------------------------
 $indice=2;
 @votos_partidos=();
