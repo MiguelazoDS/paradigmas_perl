@@ -284,10 +284,10 @@ imprimir_int_char($lineas[67]);
 ################################################################################
 # 																		Fin																			 #
 ################################################################################
-
-#Por cada nombre de partido me fijo linea por linea hasta encontrar coincidencia, cuando la hay $adentro es 1 y cuando sigue con la siguiente linea
-#busca cualquier cantidad de numeros separados hasta por dos "," y lo guardo en el arreglo creado. Ej 1,234,124.
-
+################################################################################
+#															Guardado de datos																 #
+################################################################################
+#Se realiza la sumatoria de todos los datos por departamento para obtener el total provincial.
 foreach $departamento(@departamentos){
 	Obtener($departamento, \@lineas);
 	Corregir(\@lineas,$error);
@@ -301,99 +301,52 @@ foreach $departamento(@departamentos){
 	@votos_categorias=();
 }
 
-print "final";
-
-=pod
-
-#Creo un arreglo para 27 páginas (Provincia completa y 26 departamentos).
-@worksheets=();
-#Nombre del archivo
+#Se define el nombre del archivo.
 $workbook = Excel::Writer::XLSX->new ("Elecciones_Cordoba.xlsx");
-$i=0;
-while($i<27){
-	$worksheets[$i] = $workbook->add_worksheet();
-	$i++;
-}
 
-#&GuardarInfo("PROVINCIA",@partidos,@categorias,@sum_votos_partidos, @sum_votos_categorias,$worksheets[0]);
+#Creamos el archivo.
+$worksheets=$workbook->add_worksheet();
 
-#En la primer hoja guardo los datos de la votación para la provincia completa.
-#-----------------------------------------------------
-$worksheets[0]->write(0, 3, "PROVINCIA");
-$worksheets[0]->write(2, 0, "PARTIDOS");
-$worksheets[0]->write(2, 6, "VOTOS");
+#Definimos una para ubicar los resultados.
+#-------------------------------------------------------------------------------
+$i=0;
 
-$i=0;
-foreach $a(@partidos){
-	$worksheets[0]->write(4+$i, 0, $a);
-	$i++;
-}
-$i=0;
-foreach $a(@sum_votos_partidos){
-	$worksheets[0]->write(4+$i, 6, $a);
-	$i++;
-}
-$i=0;
-foreach $a(@categorias){
-	if($a eq "Total de Votos V"){
-		#$a=$a."ALIDOS";
-		$worksheets[0]->write(12+$i, 0, $a."ALIDOS");
-	}
-	else{
-		$worksheets[0]->write(12+$i, 0, $a);
-	}
+#Se guardan los datos de la votación para la provincia completa.
+#---------------------------------------------------------------
+$worksheets->write($i, 3, "PROVINCIA");
+$worksheets->write($i+2, 0, "PARTIDOS");
+$worksheets->write($i+2, 6, "VOTOS");
 
-	$i++;
-}
-$i=0;
-foreach $a(@sum_votos_categorias){
-	$worksheets[0]->write(12+$i, 6, $a);
-	$i++;
-}
+$worksheets->write($i+4, 0, [\@partidos]);
+$worksheets->write($i+4, 6, [\@sum_votos_partidos]);
+$worksheets->write($i+12, 0, [\@categorias]);
+$worksheets->write($i+12, 0, "Total de Votos VALIDOS");
+$worksheets->write($i+12, 6, [\@sum_votos_categorias]);
 
-@votos_partidos=();
-@votos_categorias=();
-ArmarEnlace($url_final, \$url_total, "x", "S1", 1);
-Obtener($url_total, \@lineas);
+#Se guardan los datos para el departamento Capital.
+#----------------------------------------------------
+ArmarEnlace($url_molde, \$url_final, "x", "S1");
+Obtener($url_final, \@lineas);
+Corregir(\@lineas,$error);
 ObtenerVotos(\@lineas,\@partidos,\@votos_partidos);
 QuitarComa(\@votos_partidos);
 ObtenerVotos(\@lineas,\@categorias,\@votos_categorias);
 QuitarComa(\@votos_categorias);
 
+$worksheets->write($i+18, 3, "01|Capital");
+$worksheets->write($j+18+2, 0, "PARTIDOS");
+$worksheets->write($j+18+2, 6, "VOTOS");
 
+$worksheets->write($i+18+4, 0, [\@partidos]);
+$worksheets->write($i+18+4, 6, [\@votos_partidos]);
+$worksheets->write($i+18+12, 0, [\@categorias]);
+$worksheets->write($i+18+12, 0, "Total de Votos VALIDOS");
+$worksheets->write($i+18+12, 6, [\@votos_categorias]);
 
-#--------------------------------------------------------------
-$worksheets[1]->write(0, 3, "01|Capital");
-$worksheets[1]->write(2, 0, "PARTIDOS");
-$worksheets[1]->write(2, 6, "VOTOS");
+$workbook->close();
+print "final";
 
-$i=0;
-foreach $a(@partidos){
-	$worksheets[1]->write(4+$i, 0, $a);
-	$i++;
-}
-$i=0;
-foreach $a(@votos_partidos){
-	$worksheets[1]->write(4+$i, 6, $a);
-	$i++;
-}
-$i=0;
-foreach $a(@categorias){
-	if($a eq "Total de Votos V"){
-		$worksheets[1]->write(12+$i, 0, $a."ALIDOS");
-	}
-	else{
-		$worksheets[1]->write(12+$i, 0, $a);
-	}
-
-	$i++;
-}
-$i=0;
-foreach $a(@votos_categorias){
-	$worksheets[1]->write(12+$i, 6, $a);
-	$i++;
-}
-
+=pod
 #--------------------------------------------------------------
 $indice=2;
 @votos_partidos=();
